@@ -2,7 +2,14 @@
 
 # run.sh
 
-# --
+# --------------------------------------------------------------------------------
+# Run on small synthetic graphs
+
+mkdir -p {_data,_results}
+wget --header "Authorization:$TOKEN" https://hiveprogram.com/data/_v1/graphqube/synthetic.tar.gz
+tar -xzvf synthetic.tar.gz && rm synthetic.tar.gz
+mv synthetic _data/synthetic
+
 # Prep graph and query
 
 SIZE="medium"
@@ -11,9 +18,6 @@ python prep-query.py \
     --query-path ./_data/synthetic/queries/query.$PROBLEM.txt \
     --edge-path ./_data/synthetic/graphs/edges_$SIZE.tsv \
     --outdir ./_results/synthetic/$SIZE
-
-# --
-# Run
 
 # Python
 time python main.py \
