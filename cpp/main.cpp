@@ -33,8 +33,8 @@ namespace std {
         inline size_t operator()(const std::unordered_map<int, int> &v) const {
             std::hash<int> int_hasher;
             long int out = 0;
-            for ( auto it = v.begin(); it != v.end(); ++it ) {
-                out += (int_hasher(it->first) ^ int_hasher(it->second));
+            for (int i=0; i < v.size(); ++i) {
+                out += (i * 2654435761U) ^ v.at(i);
             }
             return out;
         }
@@ -179,8 +179,9 @@ Reference load_edgelist(string filename) {
 }
 
 vector<Candidate*> get_initial_candidates(Query& query, Row& row) {    
+    
     vector<Candidate*> initial_cands;
-    initial_cands.clear();
+    
     for (auto &q_edge : query.edges) {
         if(q_edge.first < q_edge.second) {
             
@@ -209,15 +210,14 @@ vector<Candidate*> get_initial_candidates(Query& query, Row& row) {
                 new_cand->edges.insert(pair<int,int>(q_edge.first, q_edge.second));
                 new_cand->edges.insert(pair<int,int>(q_edge.second, q_edge.first));
                 
-                new_cand->nodes.insert(pair<int,int>(q_edge.first, row.trg));
                 new_cand->nodes.insert(pair<int,int>(q_edge.second, row.src));
+                new_cand->nodes.insert(pair<int,int>(q_edge.first, row.trg));
                 
                 new_cand->num_uncovered_edges = query.num_edges - 1;
                 
                 new_cand->weight = row.weight;
                 
                 initial_cands.push_back(new_cand);
-                return initial_cands;
             }
        }
     }
@@ -225,18 +225,16 @@ vector<Candidate*> get_initial_candidates(Query& query, Row& row) {
 }
 
 vector<Candidate*> expand_candidate(Query& query, Reference& reference, \
-        vector<Candidate*>& initial_cands, const float max_weight, float top_k_weight) {
+        vector<Candidate*>& initial_cands, const float max_weight, candidate_heap& top_k) {
     
     vector<Candidate*> new_cands;
     vector<Candidate*> out_cands;
-    
-    out_cands.clear();
-    new_cands.clear();
     
     int verbose = 0;
     
     vector<Candidate*>* curr_cand_ptr;
     vector<Candidate*>* new_cand_ptr;
+    vector<Candidate*>* tmp_cand_ptr;
     
     curr_cand_ptr = &initial_cands;
     new_cand_ptr = &new_cands;
@@ -267,12 +265,7 @@ vector<Candidate*> expand_candidate(Query& query, Reference& reference, \
                     }
                 }
             }
-            
-            if(flag == 0) {
-                cerr << "!!!" << endl;
-                throw;
-            }
-            
+                        
             int q_trg_current, q_trg_new;
             if(reference.neibs[r_src].find(q_trg_type) != reference.neibs[r_src].end()) {
                 
@@ -299,6 +292,7 @@ vector<Candidate*> expand_candidate(Query& query, Reference& reference, \
                         #pragma omp critical
                         {
                             not_visited = (reference.visited.find(pair<int,int>(r_src, r_trg)) == reference.visited.end());    
+                            
                         }
                         
                         if(not_visited) {
@@ -306,6 +300,12 @@ vector<Candidate*> expand_candidate(Query& query, Reference& reference, \
                             int new_num_uncovered_edges = cand->num_uncovered_edges - 1;
                             float new_weight = cand->weight + r_edge_weight;
                             float upper_bound = new_weight + max_weight * new_num_uncovered_edges;
+                            
+                            float top_k_weight;
+                            #pragma omp critical
+                            {
+                                top_k_weight = top_k.top()->weight;
+                            }
                             
                             if(upper_bound > top_k_weight) {
                                 Candidate* new_cand = new Candidate;
@@ -346,7 +346,7 @@ vector<Candidate*> expand_candidate(Query& query, Reference& reference, \
         } else {
             if(verbose) { cout << "new_cands.size() " << new_cand_ptr->size() << endl; }
             curr_cand_ptr->clear();
-            vector<Candidate*>* tmp_cand_ptr = curr_cand_ptr;
+            tmp_cand_ptr = curr_cand_ptr;
             curr_cand_ptr = new_cand_ptr;
             new_cand_ptr = tmp_cand_ptr;
         }
@@ -370,6 +370,7 @@ template<typename T> void print_queue(T& q) {
     cout << endl << "total_weight: " << total_weight << endl;
 }
 
+
 int main(int argc, char **argv) {
 
     if(argc != 4) {
@@ -389,14 +390,18 @@ int main(int argc, char **argv) {
     
     // Load query  
     Query query = load_query(query_path);
-    int num_query_edges = query.edges.size();
-    cerr << "num_query_edges=" << num_query_edges << endl;
+    cerr << "num_query_edges=" << query.edges.size() << endl;
 
     // Load edges
     Reference reference = load_edgelist(edge_path);
     cerr << "num_reference_edges=" << reference.num_edges << endl;
         
     candidate_heap top_k(cmp);
+    for(int i=0; i < K; ++i) {
+        Candidate* dummy_cand = new Candidate;
+        dummy_cand->weight = -1.0;
+        top_k.push(dummy_cand);
+    }
     unordered_set<unordered_map<int,int>> top_k_members;
     
     // --
@@ -404,10 +409,9 @@ int main(int argc, char **argv) {
     
     string line;
     ifstream infile(edge_path, ifstream::in);
+    Row row = {};
     
-    int counter;
-    counter = 0;
-
+    int counter = 0;
     double start = omp_get_wtime();
     
     #pragma omp parallel
@@ -417,7 +421,6 @@ int main(int argc, char **argv) {
             while(true) { 
                 getline(infile, line);
                 istringstream iss(line);
-                Row row = {};
                 iss >> row.src;
                 iss >> row.trg;
                 iss >> row.weight;
@@ -425,24 +428,22 @@ int main(int argc, char **argv) {
                 iss >> row.trg_type;
                 iss >> row.edge_type;
                 
-                float top_k_weight;
-                if(top_k.size() >= K) {
-                    top_k_weight = top_k.top()->weight;    
-                } else {
-                    top_k_weight = -1.0;
-                }
-                
-                if(row.weight * query.num_edges < top_k_weight) {
-                    cerr << "row.weight * query.num_edges < top_k_weight -- breaking" << endl;
+                if(row.weight * query.num_edges < top_k.top()->weight) {
                     break;
                 }
                 
-                #pragma omp task firstprivate(row) shared(query,reference,top_k)
+                #pragma omp task firstprivate(counter,row) shared(top_k)
                 {
                     vector<Candidate*> initial_candidates, out_cands; 
                     initial_candidates = get_initial_candidates(query, row);
-                    out_cands = expand_candidate(query, reference, initial_candidates, row.weight, top_k_weight);
-                                        
+                    out_cands = expand_candidate(query, reference, initial_candidates, row.weight, top_k);
+                    
+                    #pragma omp critical
+                    {
+                        reference.visited.insert(pair<int,int>(row.src, row.trg));
+                        reference.visited.insert(pair<int,int>(row.trg, row.src));
+                    }
+                                   
                     for(auto &out_cand : out_cands) {
                         if(top_k_members.find(out_cand->nodes) == top_k_members.end()) {
                             if(top_k.size() < K) {
@@ -456,19 +457,13 @@ int main(int argc, char **argv) {
                                 {
                                     top_k.pop();
                                     top_k.push(out_cand);
-                                    top_k_members.insert(out_cand->nodes);                                    
+                                    top_k_members.insert(out_cand->nodes);                         
                                 }
                             }
                         }
                     }
                     initial_candidates.clear();
                     out_cands.clear();
-                    
-                    #pragma omp critical
-                    {
-                        reference.visited.insert(pair<int,int>(row.src, row.trg));
-                        reference.visited.insert(pair<int,int>(row.trg, row.src));
-                    }
                 }
                 
                 counter++;

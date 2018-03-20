@@ -6,7 +6,7 @@
 # Prep graph and query
 
 SIZE="medium"
-PROBLEM="Subgraph.4.4"
+PROBLEM="Subgraph.4.5"
 python prep-query.py \
     --query-path ./_data/synthetic/queries/query.$PROBLEM.txt \
     --edge-path ./_data/synthetic/graphs/edges_$SIZE.tsv \
@@ -26,13 +26,8 @@ time ./cpp/main \
     ./_results/synthetic/$SIZE/edgelist.tsv \
     20
 
-g++ -std=c++11 -fopenmp main.cpp   -o main
-valgrind --leak-check=full --track-origins=yes ./main \
-    ../_results/synthetic/$SIZE/query.tsv \
-    ../_results/synthetic/$SIZE/edgelist.tsv \
-    20
-
-./main \
+# c++ version (parallel)
+time ./main \
     ../_results/synthetic/$SIZE/query.tsv \
     ../_results/synthetic/$SIZE/edgelist.tsv \
     20

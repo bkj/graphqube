@@ -63,7 +63,6 @@ def initial_candidates(query, src, trg, weight, src_type, trg_type):
                     "edges"  : [(q_src, q_trg), (q_trg, q_src)],
                     "nodes"  : {q_src : src, q_trg : trg},
                     "weight" : weight,
-                    "types"  : [src_type, trg_type],
                     "num_uncovered_edges" : query['num_edges'] - 1,
                 }
             
@@ -72,7 +71,6 @@ def initial_candidates(query, src, trg, weight, src_type, trg_type):
                     "edges"  : [(q_src, q_trg), (q_trg, q_src)],
                     "nodes"  : {q_src : trg, q_trg : src},
                     "weight" : weight,
-                    "types"  : [trg_type, src_type],
                     "num_uncovered_edges" : query['num_edges'] - 1,
                 }
 
@@ -112,7 +110,6 @@ def expand_candidate(query, reference, top_k, cand, max_weight):
                         
                         if new_edges is None:
                             new_edges = cand['edges'] + [(q_src, q_trg), (q_trg, q_src)]
-                            new_types = cand['types'] + [q_trg_type]
                         
                         new_nodes = cand['nodes'].copy()
                         new_nodes[q_trg] = r_trg
@@ -121,7 +118,6 @@ def expand_candidate(query, reference, top_k, cand, max_weight):
                             "edges"  : new_edges,
                             "nodes"  : new_nodes,
                             "weight" : new_weight,
-                            "types"  : new_types,
                             "num_uncovered_edges" : new_num_uncovered_edges,
                         }
                         
@@ -231,6 +227,5 @@ if __name__ == "__main__":
     
     print('-' * 100, file=sys.stderr)
     print('total_weight', sum([p[0] for p in top_k.buffer]), file=sys.stderr)
-    # print('top_k.counter', top_k.counter, file=sys.stderr)
-    # print('runtime', runtime, file=sys.stderr)
+    print('runtime', runtime, file=sys.stderr)
 
