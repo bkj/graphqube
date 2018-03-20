@@ -15,7 +15,7 @@
 #include <unordered_map>
 #include <queue>
 
-#include <omp.h>
+#include <ctime>
 
 using namespace std;
 
@@ -286,28 +286,17 @@ vector<Candidate*> expand_candidate(Query& query, Reference& reference, \
                     int r_trg = r_trg_weight.first;
                     float r_edge_weight = r_trg_weight.second;
                     
-                    if((q_trg_new && (cand_nodes_values.find(r_trg) == cand_nodes_values.end())) || (q_trg_current == r_trg)) {
+                    bool node_fits = (q_trg_new && (cand_nodes_values.find(r_trg) == cand_nodes_values.end())) || (q_trg_current == r_trg);
+                    if(node_fits) {
                         
-                        bool not_visited;
-                        #pragma omp critical
-                        {
-                            not_visited = (reference.visited.find(pair<int,int>(r_src, r_trg)) == reference.visited.end());    
-                            
-                        }
-                        
+                        bool not_visited = reference.visited.find(pair<int,int>(r_src, r_trg)) == reference.visited.end();
                         if(not_visited) {
 
                             int new_num_uncovered_edges = cand->num_uncovered_edges - 1;
                             float new_weight = cand->weight + r_edge_weight;
                             float upper_bound = new_weight + max_weight * new_num_uncovered_edges;
                             
-                            float top_k_weight;
-                            #pragma omp critical
-                            {
-                                top_k_weight = top_k.top()->weight;
-                            }
-                            
-                            if(upper_bound > top_k_weight) {
+                            if(upper_bound > top_k.top()->weight) {
                                 Candidate* new_cand = new Candidate;
                                 
                                 new_cand->edges = cand->edges;
@@ -412,70 +401,46 @@ int main(int argc, char **argv) {
     Row row = {};
     
     int counter = 0;
-    double start = omp_get_wtime();
+    clock_t start = clock();
     
-    #pragma omp parallel
-    {
-        #pragma omp master
-        {
-            while(true) { 
-                getline(infile, line);
-                istringstream iss(line);
-                iss >> row.src;
-                iss >> row.trg;
-                iss >> row.weight;
-                iss >> row.src_type;
-                iss >> row.trg_type;
-                iss >> row.edge_type;
-                
-                if(row.weight * query.num_edges < top_k.top()->weight) {
-                    break;
-                }
-                
-                #pragma omp task firstprivate(counter,row) shared(top_k)
-                {
-                    vector<Candidate*> initial_candidates, out_cands; 
-                    initial_candidates = get_initial_candidates(query, row);
-                    out_cands = expand_candidate(query, reference, initial_candidates, row.weight, top_k);
-                    
-                    #pragma omp critical
-                    {
-                        reference.visited.insert(pair<int,int>(row.src, row.trg));
-                        reference.visited.insert(pair<int,int>(row.trg, row.src));
-                    }
-                                   
-                    for(auto &out_cand : out_cands) {
-                        if(top_k_members.find(out_cand->nodes) == top_k_members.end()) {
-                            if(top_k.size() < K) {
-                                #pragma omp critical
-                                {
-                                    top_k.push(out_cand);
-                                    top_k_members.insert(out_cand->nodes);                                
-                                }
-                            } else if (out_cand->weight > top_k.top()->weight) {
-                                #pragma omp critical
-                                {
-                                    top_k.pop();
-                                    top_k.push(out_cand);
-                                    top_k_members.insert(out_cand->nodes);                         
-                                }
-                            }
-                        }
-                    }
-                    initial_candidates.clear();
-                    out_cands.clear();
-                }
-                
-                counter++;
-                if(counter == reference.num_edges) {
-                    break;
-                }
+    while(true) { 
+        getline(infile, line);
+        istringstream iss(line);
+        iss >> row.src;
+        iss >> row.trg;
+        iss >> row.weight;
+        iss >> row.src_type;
+        iss >> row.trg_type;
+        iss >> row.edge_type;
+        
+        if(row.weight * query.num_edges < top_k.top()->weight) {
+            break;
+        }
+        
+        vector<Candidate*> initial_candidates, out_cands; 
+        initial_candidates = get_initial_candidates(query, row);
+        out_cands = expand_candidate(query, reference, initial_candidates, row.weight, top_k);
+        
+        reference.visited.insert(pair<int,int>(row.src, row.trg));
+        reference.visited.insert(pair<int,int>(row.trg, row.src));
+                       
+        for(auto &out_cand : out_cands) {
+            if(top_k.size() < K) {
+                top_k.push(out_cand);
+            } else if (out_cand->weight > top_k.top()->weight) {
+                top_k.pop();
+                top_k.push(out_cand);
             }
+        }
+        
+        counter++;
+        if(counter == reference.num_edges) {
+            break;
         }
     }
     
     print_queue(top_k);
-    double duration = (omp_get_wtime() - start);
+    double duration = (clock() - start) / (double)(CLOCKS_PER_SEC / 1000);
     cout << "counter: " << counter << endl;
     cout << "runtime: " << duration << endl;
 }

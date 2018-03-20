@@ -1,5 +1,5 @@
 
-CXXFLAGS = -std=c++11 -fopenmp
+CXXFLAGS = -std=c++11
 
 all: main
 

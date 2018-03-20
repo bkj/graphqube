@@ -15,19 +15,13 @@ python prep-query.py \
 # --
 # Run
 
-# python version (serial)
+# Python
 time python main.py \
     --query-path ./_results/synthetic/$SIZE/query.tsv \
     --edge-path ./_results/synthetic/$SIZE/edgelist.tsv
 
-# c++ version (parallel)
+# C++
 time ./cpp/main \
     ./_results/synthetic/$SIZE/query.tsv \
     ./_results/synthetic/$SIZE/edgelist.tsv \
-    20
-
-# c++ version (parallel)
-time ./main \
-    ../_results/synthetic/$SIZE/query.tsv \
-    ../_results/synthetic/$SIZE/edgelist.tsv \
     20
