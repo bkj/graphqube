@@ -32,6 +32,11 @@ time ./cpp/main \
 # --------------------------------------------------------------------------------
 # Run on wikipedia graph (< 1 second)
 
+mkdir -p {_data,_results}
+wget --header "Authorization:$TOKEN" https://hiveprogram.com/data/_v1/graphqube/wiki.tar.gz
+tar -xzvf wiki.tar.gz && rm wiki.tar.gz
+mv wiki _data/wiki
+
 # Example 3
 mkdir -p ./_results/synthetic/wiki/3
 python prep-query.py \
