@@ -12,6 +12,7 @@ import argparse
 import numpy as np
 import pandas as pd
 import networkx as nx
+from tqdm import tqdm
 from time import time
 from collections import defaultdict
 
@@ -23,6 +24,7 @@ def parse_args():
     parser.add_argument('--query-path', type=str, default='./_data/synthetic/queries/query.Subgraph.4.3.txt')
     parser.add_argument('--edge-path', type=str, default='./_data/synthetic/graphs/edges_small.tsv')
     parser.add_argument('--outdir', type=str, default='./_results/synthetic/small/')
+    parser.add_argument('--sort', action="store_true")
     return parser.parse_args()
 
 
@@ -32,7 +34,7 @@ def parse_args():
 def make_graph(edges):
     """ edgelist -> networkx graph """
     g = nx.Graph()
-    for i, row in edges.iterrows():
+    for i, row in tqdm(edges.iterrows()):
         g.add_node(row.src, type=row.src_type)
         g.add_node(row.trg, type=row.trg_type)
         g.add_edge(row.src, row.trg, weight=row.weight)
@@ -42,7 +44,7 @@ def make_graph(edges):
 
 def compute_signatures(g):
     """ compute number of neighbors of each type """
-    for node in g.nodes:
+    for node in tqdm(g.nodes):
         counter = defaultdict(set)
         one_hop = set(g.neighbors(node))
         for neib in one_hop:
@@ -123,8 +125,10 @@ if __name__ == "__main__":
     
     t = time()
     edgelist = pd.read_csv(args.edge_path, sep='\t')
-    edgelist = edgelist.sort_values(['weight', 'edge_type'], ascending=[False, True])
     edgelist = edgelist[edgelist.edge_type.isin(query_edgelist.edge_type)].reset_index(drop=True)
+    if args.sort:
+        edgelist = edgelist.sort_values(['weight', 'edge_type'], ascending=[False, True])
+    
     g = compute_signatures(make_graph(edgelist))
     print('prep-query.py: loaded edgelist %s in %fs' % (args.edge_path, time() - t), file=sys.stderr)
     

@@ -440,7 +440,7 @@ int main(int argc, char **argv) {
     }
     
     print_queue(top_k);
-    double duration = (clock() - start) / (double)(CLOCKS_PER_SEC / 1000);
+    double duration = (clock() - start) / (double)(CLOCKS_PER_SEC);
     cout << "counter: " << counter << endl;
     cout << "runtime: " << duration << endl;
 }

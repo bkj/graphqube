@@ -58,6 +58,10 @@ if __name__ == "__main__":
     
     edges['edge_type'] = edges[['src_type', 'trg_type']].apply(lambda x: '%d#%d' % tuple(sorted((x['src_type'], x['trg_type']))), axis=1)
     
+    edges['edge_type'] = edges.src_type.astype(str) + '#' + edges.trg_type.astype(str)
+    sel = edges.trg_type < edges.src_type
+    edges.edge_type[sel] = edges.trg_type[sel].astype(str) + '#' + edges.src_type[sel].astype(str)
+    
     # --
     # Write to disk
     
