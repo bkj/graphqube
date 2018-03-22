@@ -14,7 +14,7 @@ mv synthetic _data/synthetic
 SIZE="medium"
 QUERY="Subgraph.4.5"
 python prep-query.py \
-    ./_data/synthetic/queries/query.$QUERY.txt \
+    --query-path ./_data/synthetic/queries/query.$QUERY.txt \
     --edge-path ./_data/synthetic/graphs/edges_$SIZE.tsv \
     --outdir ./_results/synthetic/$SIZE
 
