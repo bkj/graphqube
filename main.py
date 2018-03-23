@@ -199,12 +199,12 @@ if __name__ == "__main__":
         if i == 0:
             continue
         
-        src, trg, weight, src_type, row_type = parse_row(row)
+        src, trg, weight, src_type, trg_type = parse_row(row)
         
         if (weight * query['num_edges']) < top_k.min:
             break
         
-        for initial_candidate in initial_candidates(query, src, trg, weight, src_type, row_type):
+        for initial_candidate in initial_candidates(query, src, trg, weight, src_type, trg_type):
             for candidate in expand_candidate(query, reference, top_k, initial_candidate, max_weight=weight):
                 top_k.add(candidate)
             
