@@ -211,7 +211,7 @@ if __name__ == "__main__":
             reference['visited'].add((src, trg))
             reference['visited'].add((trg, src))
     
-    runtime = (time() - t0)
+    runtime = time() - t0
     
     # --
     # Check output and log
